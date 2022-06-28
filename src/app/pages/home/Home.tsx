@@ -6,6 +6,7 @@ import {
   FormLabel,
   Input,
   ListItem,
+  Stack,
   Text,
   UnorderedList,
 } from "@chakra-ui/react";
@@ -32,6 +33,38 @@ const CREATE_TODO_MUTATION = gql`
   }
 `;
 
+const PUBLISH_TODO_MUTATION = gql`
+  mutation PublishTodo($id: ID!) {
+    publishTodo(where: { id: $id }, to: PUBLISHED) {
+      id
+    }
+  }
+`;
+
+const UPDATE_TODO_MUTATION = gql`
+  mutation UpdateTodo(
+    $id: ID!
+    $nome: String!
+    $descricao: String!
+    $status_todo: StatusTodo!
+  ) {
+    updateTodo(
+      data: { nome: $nome, descricao: $descricao, status_todo: $status_todo }
+      where: { id: $id }
+    ) {
+      id
+    }
+  }
+`;
+
+const DELETE_TODO_MUTATION = gql`
+  mutation DeleteTodo($id: ID!) {
+    deleteTodo(where: { id: $id }) {
+      id
+    }
+  }
+`;
+
 type TodoProps = {
   id: string;
   nome: string;
@@ -39,35 +72,115 @@ type TodoProps = {
   status_todo: "done" | "undone";
 };
 
+type CreateTodoProps = {
+  createTodo: {
+    id: string;
+  };
+};
+
 export const Home = () => {
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const { data } = useQuery<{ todos: TodoProps[] }>(GET_TODOS_QUERY);
   const todos = data?.todos;
-  console.log(todos);
 
   const [createTodo] = useMutation(CREATE_TODO_MUTATION);
+  const [publishTodo] = useMutation(PUBLISH_TODO_MUTATION);
+  const [deleteTodo] = useMutation(DELETE_TODO_MUTATION);
+  const [updateTodo] = useMutation(UPDATE_TODO_MUTATION);
+
   const handleClickSave = () => {
-    console.log(`${nome} : ${descricao}`);
     createTodo({
       variables: {
         nome: nome,
         descricao: descricao,
       },
+      onCompleted(data) {
+        publishTodo({
+          variables: {
+            id: data.createTodo.id,
+          },
+        });
+      },
+    }).then((res) => {
+      setNome("");
+      setDescricao("");
     });
   };
+
+  function handleClickConcluirTodo(
+    idTodo: string,
+    nomeTodo: string,
+    descricaoTodo: string,
+    status_todo: string
+  ): void {
+    const new_status_todo = status_todo === "done" ? "undone" : "done";
+
+    updateTodo({
+      variables: {
+        id: idTodo,
+        nome: nomeTodo,
+        descricao: descricaoTodo,
+        status_todo: new_status_todo,
+      },
+      onCompleted(data) {
+        publishTodo({
+          variables: {
+            id: data.updateTodo.id,
+          },
+        });
+      },
+    });
+  }
+
+  function handleClickDeletarTodo(idTodo: string): void {
+    deleteTodo({
+      variables: {
+        id: idTodo,
+      },
+    });
+  }
 
   return (
     <Box w={"90%"} h={"100%"} marginX={"auto"}>
       <Box h={"50%"}>
-        <Text>Lista de Todos</Text>
+        <Text marginLeft={"10%"} fontWeight={"700"}>
+          Todos
+        </Text>
         {todos && (
           <UnorderedList>
             {todos.map((todo) => {
               return (
-                <ListItem key={todo.id}>{`${todo.nome} - ${todo.descricao} - ${
-                  todo.status_todo === "done" ? "Feito" : "Para fazer"
-                }`}</ListItem>
+                <ListItem key={todo.id}>
+                  <Stack direction={"row"} paddingY={"3px"}>
+                    <Text>{todo.nome} - </Text>
+                    <Text>{todo.descricao} - </Text>
+                    <Text>
+                      {todo.status_todo === "done" ? "Feito" : "Para fazer"}
+                    </Text>
+                    <Button
+                      colorScheme={"blue"}
+                      size={"sm"}
+                      onClick={() =>
+                        handleClickConcluirTodo(
+                          todo.id,
+                          todo.nome,
+                          todo.descricao,
+                          todo.status_todo
+                        )
+                      }
+                    >
+                      Concluir
+                    </Button>
+                    <Button
+                      colorScheme={"red"}
+                      size={"sm"}
+                      onClick={() => handleClickDeletarTodo(todo.id)}
+                    >
+                      Deletar
+                    </Button>
+                  </Stack>
+                </ListItem>
               );
             })}
           </UnorderedList>
@@ -80,6 +193,7 @@ export const Home = () => {
           <Input
             type={"text"}
             id="nome"
+            value={nome}
             onChange={(e) => setNome(e.target.value)}
           />
         </FormControl>
@@ -88,6 +202,7 @@ export const Home = () => {
           <Input
             type={"text"}
             id="descricao"
+            value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
           />
         </FormControl>
