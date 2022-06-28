@@ -72,12 +72,6 @@ type TodoProps = {
   status_todo: "done" | "undone";
 };
 
-type CreateTodoProps = {
-  createTodo: {
-    id: string;
-  };
-};
-
 export const Home = () => {
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
